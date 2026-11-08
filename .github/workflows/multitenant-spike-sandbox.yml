@@ -1,0 +1,45 @@
+name: Multitenant Vault sandbox spike
+permissions:
+  contents: read
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'spike/**'
+      - '.github/workflows/multitenant-spike-sandbox.yml'
+jobs:
+  sandbox:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: 1.99.0
+          targets: wasm32-unknown-unknown
+      - name: Contract unit tests
+        run: cargo test --locked --manifest-path spike/multitenant-contract/Cargo.toml
+      - name: Compile exact sandbox WASM
+        run: cargo build --locked --release --target wasm32-unknown-unknown --manifest-path spike/multitenant-contract/Cargo.toml
+      - name: Verify reviewed WASM hash
+        run: echo '0CA596B9B07EF974235EE025E7B8ECCCC1B744A913E9F4476F7E917482F476A3  spike/multitenant-contract/target/wasm32-unknown-unknown/release/agentshield_multitenant_spike.wasm' | sha256sum -c -
+      - name: Sandbox integration tests
+        run: cargo test --locked --manifest-path spike/sandbox-tests/Cargo.toml --test vault -- --nocapture
+      - name: Compile isolated callback-fault WASM
+        run: CARGO_TARGET_DIR=spike/multitenant-contract/target/fault-callback cargo build --locked --release --target wasm32-unknown-unknown --features fault-callback --manifest-path spike/multitenant-contract/Cargo.toml
+      - name: Sandbox failed-callback accounting
+        env:
+          AGENTSHIELD_FAULT_CALLBACK_WASM: spike/multitenant-contract/target/fault-callback/wasm32-unknown-unknown/release/agentshield_multitenant_spike.wasm
+        run: cargo test --locked --manifest-path spike/sandbox-tests/Cargo.toml --test callback_failure -- --ignored --nocapture
+      - name: Compile isolated recovery fixtures
+        run: bash spike/recovery-prototype/build-fixtures.sh
+      - name: Sandbox recovery upgrade and normal-code restore
+        env:
+          AGENTSHIELD_NORMAL_WASM: spike/multitenant-contract/target/wasm32-unknown-unknown/release/agentshield_multitenant_spike.wasm
+          AGENTSHIELD_FAULT_CALLBACK_WASM: spike/multitenant-contract/target/fault-callback/wasm32-unknown-unknown/release/agentshield_multitenant_spike.wasm
+          AGENTSHIELD_RECOVERY_SUCCESS_WASM: spike/recovery-prototype/target/fixtures/success.wasm
+          AGENTSHIELD_RECOVERY_FAILURE_WASM: spike/recovery-prototype/target/fixtures/failure.wasm
+          AGENTSHIELD_RECOVERY_WRONG_OWNER_WASM: spike/recovery-prototype/target/fixtures/wrong-owner.wasm
+          AGENTSHIELD_RECOVERY_WRONG_AMOUNT_WASM: spike/recovery-prototype/target/fixtures/wrong-amount.wasm
+          AGENTSHIELD_RECOVERY_WRONG_ID_WASM: spike/recovery-prototype/target/fixtures/wrong-id.wasm
+        run: cargo test --locked --manifest-path spike/sandbox-tests/Cargo.toml --test recovery_upgrade -- --ignored --nocapture
