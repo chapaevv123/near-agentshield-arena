@@ -1,0 +1,22 @@
+{
+  "name": "agentshield-arena-showcase",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:showcase": "tsc --noEmit && vite build --config vite.showcase.config.ts --configLoader runner",
+    "preview:showcase": "vite preview --config vite.showcase.config.ts --configLoader runner --host 127.0.0.1 --port 4182",
+    "test:showcase": "node scripts/test-showcase.mjs"
+  },
+  "dependencies": {
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "typescript": "5.9.3",
+    "vite": "7.3.7"
+  }
+}

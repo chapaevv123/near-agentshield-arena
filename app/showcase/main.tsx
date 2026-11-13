@@ -1,0 +1,74 @@
+import React, { useState } from 'react';
+import { createRoot } from 'react-dom/client';
+import './styles.css';
+
+const proof = {
+  owner: 'safeibis9110.testnet', agent: 'openroom8315.testnet', vault: 'agentshield-arena-v2-stage2.testnet',
+  recipient: 'soundestate8404.testnet', payment: 'ag-e7f53f5b9e714fc4ac09d7eb45ee2618',
+  task: 'task-ab5b09b7692e4a9d8d9d21241cb9a0d2', amount: '0.001', policy: 'v4',
+  authorize: '6YjcdhYxs65JQMtfqDLgMM2PfadMtJQkSfHjmR4KCT1N',
+  request: '2Yo8N6TvbtobhWYH8UxvgAAxCrm1FGXduBa82qZCUmr8',
+  execute: 'ApXoyN7EpG6S8DFX6gfm919tqQFQC4u911MDxU7p4KdS',
+  transferReceipt: 'bhH1rHpPWmLPrWKo8dUYfQuWQxhpUNezUEEoESR1frv',
+  callbackReceipt: '2nw4yLNc1aF2MLP1thgKBUwDTWhq7fBrtnvm7qeEtVQ6',
+} as const;
+type Phase = 'authorize' | 'request' | 'execute';
+const phases: { key: Phase; label: string; actor: string; detail: string }[] = [
+  { key: 'authorize', label: 'Authorize', actor: 'Owner', detail: 'The owner approved an exact payment scope under policy v4. This approval was checked against FINAL Testnet state.' },
+  { key: 'request', label: 'Request', actor: 'Restricted agent', detail: 'The agent submitted the scoped payment request with its restricted FunctionCall key. The Vault recorded the request.' },
+  { key: 'execute', label: 'Execute', actor: 'Restricted agent', detail: 'The Vault executed the approved request and transferred exactly 0.001 NEAR to the allowed recipient.' },
+];
+const explorer = (hash: string) => `https://testnet.nearblocks.io/txns/${hash}`;
+function TxLink({ hash, label }: { hash: string; label: string }) {
+  return <a className="tx-link" href={explorer(hash)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${label} transaction ${hash} in NEAR Testnet Explorer`}><span>{hash}</span><span aria-hidden="true">↗</span></a>;
+}
+function App() {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [phase, setPhase] = useState<Phase>('authorize');
+  const current = phases.find((item) => item.key === phase)!;
+  const closeMenu = () => setMenuOpen(false);
+  return <>
+    <a className="skip-link" href="#main">Skip to content</a>
+    <header className="site-header"><div className="shell nav-wrap">
+      <a className="brand" href="#top" onClick={closeMenu} aria-label="AgentShield Arena, back to top"><span className="brand-mark">◇</span><span>AgentShield <strong>Arena</strong></span></a>
+      <button className="menu-toggle" type="button" aria-expanded={menuOpen} aria-controls="site-nav" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? 'Close menu' : 'Menu'} <span aria-hidden="true">{menuOpen ? '×' : '☰'}</span></button>
+      <nav id="site-nav" className={menuOpen ? 'nav-links open' : 'nav-links'} aria-label="Main navigation">
+        <a href="#product" onClick={closeMenu}>Product</a><a href="#how-it-works" onClick={closeMenu}>How it works</a><a href="#demo" onClick={closeMenu}>Demo</a><a href="#architecture" onClick={closeMenu}>Architecture</a><a href="#docs" onClick={closeMenu}>Docs</a>
+      </nav>
+      <a className="header-cta" href="#demo">Explore proof <span aria-hidden="true">↗</span></a>
+    </div></header>
+    <main id="main"><section className="hero shell" id="top" aria-labelledby="hero-title">
+      <div className="hero-copy"><div className="eyebrow"><span className="pulse-dot"/> BUILT ON NEAR TESTNET <span className="eyebrow-line"/></div>
+        <h1 id="hero-title">Secure payments<br/>for <span>AI agents.</span></h1>
+        <p className="hero-lead">Give agents the ability to pay, without giving up control. Every payment follows an owner approved policy and leaves a verifiable on-chain trail.</p>
+        <div className="hero-actions"><a className="button primary" href="#demo">Explore the real payment <span aria-hidden="true">↗</span></a><a className="button subtle" href="#how-it-works">How it works <span aria-hidden="true">↓</span></a></div>
+        <div className="hero-trust"><span className="trust-icon">✦</span><span>One completed Testnet settlement · independently FINAL verified</span></div>
+      </div>
+      <div className="hero-card-wrap"><div className="orb orb-green"/><div className="orb orb-purple"/><article className="proof-card" aria-label="Completed Testnet payment proof">
+        <div className="card-top"><span className="card-kicker"><span className="live-dot"/> VERIFIED TESTNET PROOF</span><span className="card-chain"><span className="near-badge"><img src="/brand/near-protocol-commons-cc0.png" alt="NEAR Protocol symbol"/></span> NEAR</span></div>
+        <div className="payment-caption">COMPLETED PAYMENT</div><div className="payment-amount">0.001 <span>NEAR</span></div>
+        <p className="payment-caption-line">To <strong>{proof.recipient}</strong></p>
+        <div className="card-divider"/>
+        {phases.map((item, index) => <div className="tx-row" key={item.key}><span className="step-icon">{index + 1}</span><span className="tx-meta"><b>{item.label}</b><small>{proof[item.key].slice(0, 8)}…{proof[item.key].slice(-6)}</small></span><a href={explorer(proof[item.key])} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.label} transaction in NEAR Testnet Explorer`}>↗</a></div>)}
+        <div className="card-footer"><span><span className="verified-check">✓</span> Settlement verified</span><span>2 independent FINAL RPCs</span></div>
+      </article></div>
+    </section>
+    <section className="metrics shell" id="product" aria-label="Product facts"><div><strong>01</strong><span>Real payment completed</span></div><div><strong>03</strong><span>On-chain transactions</span></div><div><strong>02</strong><span>FINAL RPC verifiers</span></div><div><strong>v4</strong><span>Enforced policy</span></div></section>
+    <section className="section shell" id="how-it-works"><div className="section-intro"><div className="eyebrow">THE PAYMENT FLOW</div><h2>Control at every step.<br/><span>Proof at the end.</span></h2><p>AgentShield separates an owner's decision from an agent's limited ability to act. The completed example below shows each step on NEAR Testnet.</p></div>
+      <div className="steps"><article className="step-card"><div className="step-top"><span>01 / OWNER</span><span className="step-glyph">◎</span></div><h3>Set the boundaries</h3><p>The owner specifies the recipient, amount, agent and policy, then authorizes the exact payment.</p><a href="#demo" onClick={() => setPhase('authorize')}>Inspect authorization <span aria-hidden="true">↗</span></a></article><article className="step-card"><div className="step-top"><span>02 / AGENT</span><span className="step-glyph">⌁</span></div><h3>Request within policy</h3><p>The agent's restricted key can call only the payment methods on the Vault. A request remains linked to the owner's scope.</p><a href="#demo" onClick={() => setPhase('request')}>Inspect request <span aria-hidden="true">↗</span></a></article><article className="step-card"><div className="step-top"><span>03 / VAULT</span><span className="step-glyph">↗</span></div><h3>Settle and verify</h3><p>The Vault transfers to the allowed recipient. The transfer, callback and final state are independently checked.</p><a href="#demo" onClick={() => setPhase('execute')}>Inspect settlement <span aria-hidden="true">↗</span></a></article></div>
+    </section>
+    <section className="section demo-section" id="demo"><div className="shell"><div className="section-intro"><div className="eyebrow">INTERACTIVE PROOF WALKTHROUGH</div><h2>Follow one payment.<br/><span>Verify every link.</span></h2><p>This is a historical settlement from 13 November 2026. Select a step to inspect its real transaction. This demo performs no wallet or payment actions.</p></div>
+      <div className="demo-grid"><div className="phase-list" role="tablist" aria-label="Payment phases">{phases.map((item, index) => <button key={item.key} type="button" role="tab" id={`tab-${item.key}`} aria-controls="phase-panel" aria-selected={phase === item.key} className={phase === item.key ? 'phase-tab selected' : 'phase-tab'} onClick={() => setPhase(item.key)}><span>0{index + 1}</span><strong>{item.label}</strong><small>{item.actor}</small><span aria-hidden="true">↗</span></button>)}</div><article className="phase-detail" id="phase-panel" role="tabpanel" aria-labelledby={`tab-${phase}`}><div className="detail-top"><span className="status-pill">✓ FINAL VERIFIED</span><span>{current.actor}</span></div><h3>{current.label} payment</h3><p>{current.detail}</p><div className="detail-list"><div><span>Transaction</span><TxLink hash={proof[phase]} label={current.label}/></div><div><span>Payment ID</span><code>{proof.payment}</code></div><div><span>Vault</span><code>{proof.vault}</code></div>{phase === 'execute' && <><div><span>Transfer receipt</span><code>{proof.transferReceipt}</code></div><div><span>Callback receipt</span><code>{proof.callbackReceipt}</code></div></>}</div><a className="button primary detail-cta" href={explorer(proof[phase])} target="_blank" rel="noopener noreferrer">View on NEAR Testnet Explorer <span aria-hidden="true">↗</span></a></article></div>
+      <div className="proof-note"><span>◉</span><p><strong>Verification source:</strong> FastNear and Intear independent FINAL RPC outcomes and receipts, captured 13 November 2026. Backend task is COMPLETED. This is a saved historical proof, not live polling or a claim about a new user's Vault.</p></div>
+    </div></section>
+    <section className="section shell" id="security"><div className="section-intro"><div className="eyebrow">POLICY & SECURITY</div><h2>Bounded by design.<br/><span>Auditable by default.</span></h2><p>These mechanisms were used in the completed Testnet flow. The public showcase is read only; protected signing and owner sessions stay local.</p></div><div className="security-grid">{[
+      ['01','Owner authorization','The owner approves an exact payment scope before the agent can request it.'],['02','Spending limits','Vault policy caps amounts and enforces available balance.'],['03','Restricted agent key','The FunctionCall key is limited to the Vault payment methods.'],['04','Recipient allowlist','The payment can settle only to an allowed recipient.'],['05','Durable audit trail','Backend revisions and on-chain transaction receipts preserve the sequence.'],['06','Idempotent execution','A protected journal claims the transaction hash before one broadcast. Unknown outcomes stop for reconciliation.'],['07','FINAL verification','Two independent RPC operators confirm the final receipt graph and settlement.'],['08','Protected native signer','The private agent key remains in Windows DPAPI custody; the public site never handles it.']
+    ].map(([n,title,body]) => <article className="security-item" key={n}><span>{n}</span><div><h3>{title}</h3><p>{body}</p></div></article>)}</div></section>
+    <section className="section architecture-section" id="architecture"><div className="shell"><div className="section-intro"><div className="eyebrow">SYSTEM ARCHITECTURE</div><h2>One clear path<br/><span>from intent to settlement.</span></h2></div><div className="architecture-flow" aria-label="Owner to policy and Vault to restricted agent to request to execute to recipient">{['Owner','Policy / Vault','Restricted agent','Request','Execute','Recipient'].map((item, index) => <React.Fragment key={item}><div className="flow-node"><span>0{index+1}</span><strong>{item}</strong></div>{index<5 && <span className="flow-arrow" aria-hidden="true">→</span>}</React.Fragment>)}</div><p className="architecture-note">The owner authorizes the exact scope. The agent's restricted key can request and execute under Vault policy. The contract controls settlement; the backend records independently checked evidence. The public site has no signing path.</p></div></section>
+    <section className="section shell docs-section" id="docs"><div className="section-intro"><div className="eyebrow">DOCUMENTATION</div><h2>Understand the system.<br/><span>Check the evidence.</span></h2></div><div className="docs-grid"><article><span>01</span><h3>What is AgentShield?</h3><p>A policy-bound payment flow for AI agents. The owner retains approval authority while the agent operates with restricted permissions.</p></article><article><span>02</span><h3>How payments work</h3><p>One owner authorization, one agent request and one agent execution form the completed Testnet payment. Each phase has a real explorer link above.</p></article><article><span>03</span><h3>Security model</h3><p>Limits, allowlists, exact scope, restricted keys, durable claims and two independent FINAL verifiers protect the flow.</p><a href="#security">Explore security <span aria-hidden="true">↗</span></a></article><article><span>04</span><h3>Testnet proof</h3><p>0.001 NEAR was transferred to {proof.recipient}. The transfer and callback receipts were verified on both RPCs.</p><a href="#demo">Inspect proof <span aria-hidden="true">↗</span></a></article><article><span>05</span><h3>Current state & limits</h3><p>This is a historical completed payment. Last saved Vault snapshot: 0.009 NEAR available and zero pending, captured 13 November 2026. A public wallet flow and live state feed are not deployed.</p></article><article><span>06</span><h3>Source code</h3><p>The local repository is prepared for publication. A GitHub link will appear only after the owner publishes and verifies the public repository.</p></article></div></section>
+    <section className="closing shell"><div><div className="eyebrow">EXPLORE THE PROOF</div><h2>Trust the trail,<br/><span>not the promise.</span></h2><p>Three real transactions. One settled payment. Every step open for inspection.</p></div><a className="button primary" href="#demo">Inspect the payment <span aria-hidden="true">↗</span></a></section>
+    </main><footer className="site-footer"><div className="shell footer-grid"><div><a className="brand" href="#top"><span className="brand-mark">◇</span><span>AgentShield <strong>Arena</strong></span></a><p>Independent project built on NEAR Testnet. Not affiliated with or endorsed by NEAR Protocol.</p></div><div><span>EXPLORE</span><a href="#product">Product</a><a href="#demo">Testnet proof</a><a href="#security">Security</a><a href="#docs">Documentation</a></div><div><span>ON CHAIN</span><a href={explorer(proof.authorize)} target="_blank" rel="noopener noreferrer">Authorization ↗</a><a href={explorer(proof.request)} target="_blank" rel="noopener noreferrer">Request ↗</a><a href={explorer(proof.execute)} target="_blank" rel="noopener noreferrer">Settlement ↗</a></div></div><div className="shell footer-bottom"><span>© 2026 AgentShield Arena</span><span>Historical Testnet evidence · read-only showcase</span></div></footer>
+  </>;
+}
+
+createRoot(document.getElementById('root')!).render(<App />);
