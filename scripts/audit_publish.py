@@ -23,7 +23,7 @@ MARKERS = {
 
 
 def git(*args: str) -> bytes:
-    return subprocess.check_output(["git", *args], cwd=ROOT, stderr=subprocess.DEVNULL)
+    return subprocess.check_output(["git", "-c", f"safe.directory={ROOT}", *args], cwd=ROOT, stderr=subprocess.DEVNULL)
 
 
 def check(name: str, data: bytes, findings: list[str], source: str) -> None:
