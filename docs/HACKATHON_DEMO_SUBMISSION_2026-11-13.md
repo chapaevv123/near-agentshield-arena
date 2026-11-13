@@ -1,5 +1,9 @@
 # Demo and submission drafts — owner review
 
+**Public website:** https://near-agentshield-arena.vercel.app
+
+**Public GitHub source:** https://github.com/chapaevv123/near-agentshield-arena
+
 ## 75-second demo script and shot order
 
 | Time | Screen | Narration |
@@ -27,6 +31,6 @@ Recommended primary track: **AI Security & Defense**, because the product constr
 
 ## English X post draft — do not publish automatically
 
-AI agents need payment rails with boundaries. AgentShield Arena lets an owner authorize an exact NEAR Testnet payment, while a restricted agent requests and executes under Vault policy. We completed a real 0.001 NEAR payment with three public txs and two independent FINAL verifiers. Read-only demo and source links will be added after release. @NEARProtocol #NEARHackathon
+AI agents need payment rails with boundaries. AgentShield Arena completed a real 0.001 NEAR Testnet payment under owner policy and a restricted key. Three public transactions, two FINAL verifiers. Explore: https://near-agentshield-arena.vercel.app @NEARProtocol #NEARHackathon
 
 No prize, ranking, public URL or endorsement is claimed. The owner must review and publish any post or submission.

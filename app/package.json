@@ -6,7 +6,8 @@
   "scripts": {
     "build:showcase": "tsc --noEmit && vite build --config vite.showcase.config.ts --configLoader runner",
     "preview:showcase": "vite preview --config vite.showcase.config.ts --configLoader runner --host 127.0.0.1 --port 4182",
-    "test:showcase": "node scripts/test-showcase.mjs"
+    "test:showcase": "node scripts/test-showcase.mjs",
+    "test:live": "playwright test --config playwright.live.config.ts"
   },
   "dependencies": {
     "react": "19.3.1",

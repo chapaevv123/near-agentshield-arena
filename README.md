@@ -1,5 +1,9 @@
 # AgentShield Arena
 
+**Website:** https://near-agentshield-arena.vercel.app
+
+**Public source:** https://github.com/chapaevv123/near-agentshield-arena
+
 **Secure, policy-bound payments for AI agents on NEAR Testnet.** This independent hackathon project is not affiliated with or endorsed by NEAR Protocol.
 
 ![AgentShield Arena public showcase](docs/screenshots/desktop.png)
