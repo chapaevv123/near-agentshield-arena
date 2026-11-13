@@ -48,3 +48,15 @@ test('public mobile navigation and layout', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Source code' })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
+
+test('all three explorer controls open the exact transaction URL', async ({ page, context }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' });
+  for (const hash of hashes) {
+    const expected = `https://testnet.nearblocks.io/txns/${hash}`;
+    const popupPromise = context.waitForEvent('page');
+    await page.locator(`a[href="${expected}"]`).first().click();
+    const popup = await popupPromise;
+    await expect.poll(() => popup.url(), { timeout: 15_000 }).toBe(expected);
+    await popup.close();
+  }
+});

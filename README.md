@@ -51,6 +51,8 @@ npm run preview:showcase
 
 Open `http://127.0.0.1:4182`. Run `npm run test:showcase` for desktop, tablet, mobile, navigation, link and keyboard smoke tests. The Playwright configuration uses Microsoft Edge locally; if Edge is unavailable, install a compatible Playwright Chromium browser or adjust the test channel. The production site is a static Vite build; Vercel root is `app` and output is `dist-showcase`.
 
+Run `npm run test:live` from `app/` to check the published HTTPS site in a fresh browser context, including the GitHub link, three explorer links, mobile navigation, console errors and localhost requests.
+
 Run `python scripts/audit_publish.py` from the repository root to scan the exact public files and every reachable Git blob for sensitive paths and key/token markers.
 
 ## Known limits
