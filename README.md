@@ -13,16 +13,18 @@
 ## EXPERIMENTAL
 
 - Cloudflare Workers + D1 Free read-only API: NEP-413 owner session, owner-scoped FINAL policy/history, rate limits and policy preflight. A local Worker test is not proof of deployed Cloudflare behavior. The Vercel app can use the approved `VITE_AGENTSHIELD_WORKER_URL` after deployment; without it, wallet owner operations still use NEAR RPC while cloud-only functions show unavailable.
-- A local release branch from the current GitHub `main` is prepared for review. Nothing has been pushed, migrated or deployed by this sprint.
+- [PR #1](https://github.com/chapaevv123/near-agentshield-arena/pull/1) contains the release candidate. Its Ubuntu check passed; migration and deployment were skipped. The reviewed code is not yet on the public `/app/` route.
 
 ## NOT AVAILABLE
 
 - Autonomous agent REQUEST/EXECUTE from the public site. The Windows DPAPI signer and local control plane are outside Lite; there is no approved cloud signer, live key or broadcast endpoint.
 - Public Meteor-to-Vault FINAL E2E for a new owner. **PRODUCT READY = NO** until that result is captured on the deployed app.
 
-Judge path after an authorized deployment: **Launch App → Connect Meteor Testnet → Create My Vault with initial limits → Deposit → Read FINAL balance/policy → Check payment against FINAL policy → approve an owner action in Meteor → reconcile FINAL hash → open Testnet Explorer.** If no agent executor is configured, the ALLOW/DENY panel remains an advisory estimate and no agent payment is sent. Capture real screenshots only after that public flow; proposed GIF frames are landing/Launch App, Meteor account, Vault creation prompt, FINAL Vault balance, policy and Judge Demo, FINAL transaction hash, and Explorer receipt.
+Judge path after an authorized deployment: **Launch App → Connect Meteor Testnet → Create My Vault with initial limits (if absent) → Deposit → Read FINAL balance/policy → Check payment against FINAL policy → confirm an owner action in Meteor → reconcile its FINAL hash → open Testnet Explorer.** If a Vault already exists, start with its FINAL state. The ALLOW/DENY panel is an advisory estimate and sends no agent payment. If Meteor cancels, RPC fails or the outcome is UNKNOWN, stop and report that state. Capture real screenshots only after the public flow; proposed frames are landing/Launch App, Meteor account, Vault creation prompt, FINAL balance, policy and Judge Demo, FINAL transaction hash, and Explorer receipt.
 
 Exact publication gates, commands, rollback and public E2E checklist: [Lite release runbook](docs/LITE_RELEASE_RUNBOOK_2026-11-14.md).
+
+For the NEAR HACKATHON, the new Lite work is isolated in [PR #1](https://github.com/chapaevv123/near-agentshield-arena/pull/1) against the earlier public showcase baseline. The primary submission track is AI Security & Defense; public agent execution remains unavailable. See the [video plan and submission draft](docs/LITE_HACKATHON_SUBMISSION_2026-11-14.md). No new public judge video, X post or application is evidenced here.
 
 **Secure payments for AI agents, with owner policy and verifiable NEAR Testnet settlement.** This is an independent hackathon project built on NEAR Testnet, not an official NEAR Protocol product.
 
