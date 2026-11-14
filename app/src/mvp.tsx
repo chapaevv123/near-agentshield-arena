@@ -10,6 +10,7 @@ import {mvpApi,type AgentSession,type AgentPayment} from './lib/mvp-api-client';
 import {checkedControlPlan,checkedControlIntent,type ProvisioningPlan,type ProvisioningStatus} from './lib/agent-provisioning';
 import {ACCOUNT,MVP_CODE_HASH,MVP_CONTRACT,MVP_GENESIS,STORAGE_DEPOSIT,GAS,
   exactNear,displayNear,ownerPreflight,authorizeArgs,verifyFinalCall,verifyAuthorization,
+  DEMO_OWNER,DEMO_AGENT,DEMO_RECIPIENT,DEMO_AMOUNT,validDemoId,verifyDemoTransfer,
   recordKey,pendingKey,type Vault,type PolicySnapshot,type PaymentAuthorization,
   type PaymentDetails,type PaymentRecord,type FinalTx} from './lib/mvp-core';
 import './mvp.css';
@@ -17,7 +18,18 @@ import './mvp.css';
 type WalletAccount={identifier:{blockchain:'near';network:'testnet';accountId:string};
   connection:{executionTarget:string};publicKeys:unknown[]};
 type Pending={method:string;args:Record<string,unknown>;deposit:string;gas:string;hash:string|null;
-  before_vault:Vault|null;created_at:string};
+  before_vault:Vault|null;before_recipient?:string;created_at:string};
+type Demo={id:string;grant_hash:string;authorize_hash:string;request_hash:string;execute_hash:string};
+const demoKey='agentshield-mvp:manual-payment-v1';
+function loadDemo():Demo{
+  try{const row=JSON.parse(localStorage.getItem(demoKey)??'{}');
+    if(row.id&& !validDemoId(row.id))throw new Error('Invalid saved demo ID');
+    return {id:typeof row.id==='string'?row.id:'',grant_hash:typeof row.grant_hash==='string'?row.grant_hash:'',
+      authorize_hash:typeof row.authorize_hash==='string'?row.authorize_hash:'',
+      request_hash:typeof row.request_hash==='string'?row.request_hash:'',
+      execute_hash:typeof row.execute_hash==='string'?row.execute_hash:''};}
+  catch{return {id:'',grant_hash:'',authorize_hash:'',request_hash:'',execute_hash:''};}
+}
 const savedAccountKey='agentshield-mvp:last-account-v1';
 const provisioningPendingKey=(owner:string)=>`agentshield-mvp:agent-creation:${owner}`;
 const explorer=(hash:string)=>`https://testnet.nearblocks.io/txns/${encodeURIComponent(hash)}`;
@@ -60,6 +72,14 @@ function App(){
   const [cloudApiStatus,setCloudApiStatus]=useState('CHECKING');
   const [cloudDecision,setCloudDecision]=useState<{reason:string;allowed:boolean;classification:string}|null>(null);
   const [judgeDecision,setJudgeDecision]=useState<{reason:string;allowed:boolean;recipient:string;amount:string}|null>(null);
+  const [demo,setDemo]=useState<Demo>(loadDemo);
+  const [demoDetails,setDemoDetails]=useState<PaymentDetails|null>(null);
+  const [demoRecipientBalance,setDemoRecipientBalance]=useState('');
+  const [demoVaultBalance,setDemoVaultBalance]=useState('');
+  const [demoVerified,setDemoVerified]=useState(false);
+  const [demoAgentSeen,setDemoAgentSeen]=useState(()=>localStorage.getItem('agentshield-mvp:demo-agent-seen-v1')==='yes');
+  const [demoMessage,setDemoMessage]=useState('Connect the owner in Meteor to begin. Switch to the agent only after FINAL authorization.');
+  function saveDemo(next:Demo){localStorage.setItem(demoKey,JSON.stringify(next));setDemo(next);}
   useEffect(()=>{void mvpApi<{mode:string}>('/health','GET').then(status=>{
     if(status.mode==='READ_ONLY'){setCloudReadOnly(true);setCloudApiStatus('ONLINE · READ ONLY');}
     else if(status.mode==='LOCAL'){setCloudReadOnly(false);setCloudApiStatus('LOCAL');}
@@ -114,6 +134,7 @@ function App(){
     try{const saved=localStorage.getItem(savedAccountKey);if(!saved||!ACCOUNT.test(saved))return;
       const {selected}=await selectedWallet(saved);await pinned();if(!live)return;
       setOwner(selected.identifier.accountId);await refresh(selected.identifier.accountId);
+      if(selected.identifier.accountId===DEMO_AGENT){localStorage.setItem('agentshield-mvp:demo-agent-seen-v1','yes');setDemoAgentSeen(true);}
       setCreationPending(localStorage.getItem(provisioningPendingKey(selected.identifier.accountId)));
       setMessage(`Meteor session restored for ${selected.identifier.accountId}. On-chain state refreshed.`);
     }catch(error){if(live)setMessage(`Session restore unavailable: ${errorText(error)} Connect again.`);}
@@ -124,6 +145,7 @@ function App(){
       const selected=await action.promptForExecution();validWallet(selected);
       const id=selected.identifier.accountId;localStorage.setItem(savedAccountKey,id);
       setOwner(id);setPayment(null);setPolicy(null);setLastHash('');await refresh(id);
+      if(id===DEMO_AGENT){localStorage.setItem('agentshield-mvp:demo-agent-seen-v1','yes');setDemoAgentSeen(true);}
       setAgentSession(null);setAgentRows([]);setAgentReservation(null);setProvisioning(null);setKeyRemoval(null);setSharedExecutor(null);
       setCreationPending(localStorage.getItem(provisioningPendingKey(id)));
       setMessage(`Connected ${id}. Wallet prompts will confirm each owner transaction.`);
@@ -206,6 +228,7 @@ function App(){
       if(!hash)throw new Error('Wallet returned no hash. Inspect Meteor Activity before retrying.');
       const withHash={...marker,hash};localStorage.setItem(pendingKey(owner),JSON.stringify(withHash));setPending(withHash);
       await reconcile(withHash);
+      return hash;
     }catch(error){
       if(promptStarted&&isMeteorCancellation(error)&&!loadPending(owner)?.hash){
         localStorage.removeItem(pendingKey(owner));setPending(null);
@@ -441,11 +464,172 @@ function App(){
     if(!hash)throw new Error('A transaction hash is required. UNKNOWN remains locked.');
     if(!/^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(hash))throw new Error('Invalid NEAR transaction hash.');
     const next={...pending,hash};localStorage.setItem(pendingKey(owner),JSON.stringify(next));setPending(next);
-    await reconcile(next);
+    if(next.method==='request_payment'||next.method==='execute_payment')await reconcileDemoAgent(next);
+    else await reconcile(next);
+  }
+  async function demoRead(method:string,args:Record<string,unknown>,url='https://test.rpc.fastnear.com'){
+    const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},
+      body:JSON.stringify({jsonrpc:'2.0',id:'manual-demo-final',method:'query',params:{request_type:'call_function',
+        finality:'final',account_id:MVP_CONTRACT,method_name:method,
+        args_base64:btoa(JSON.stringify(args))}}),signal:AbortSignal.timeout(15000)});
+    const body=await response.json();if(!response.ok||body.error||!Array.isArray(body.result?.result))throw new Error(`FINAL ${method} unavailable`);
+    return JSON.parse(new TextDecoder().decode(Uint8Array.from(body.result.result))) as unknown;
+  }
+  async function demoTx(hash:string){
+    const results:FinalTx[]=[];
+    for(const url of ['https://test.rpc.fastnear.com','https://testnet-rpc.intea.rs']){
+      const response=await fetch(url,{method:'POST',headers:{'content-type':'application/json'},
+        body:JSON.stringify({jsonrpc:'2.0',id:'manual-demo-final',method:'tx_status',
+          params:{tx_hash:hash,sender_account_id:DEMO_AGENT,wait_until:'FINAL'}}),signal:AbortSignal.timeout(15000)});
+      const body=await response.json();if(!response.ok||body.error||!body.result)throw new Error('Two-RPC FINAL transaction proof unavailable');
+      results.push(body.result as FinalTx);
+    }
+    return results;
+  }
+  async function demoPreflight(){
+    await pinned();
+    const [fresh,scope]=await Promise.all([
+      view<Vault|null>('get_vault',{owner:DEMO_OWNER},MVP_CONTRACT),
+      view<PolicySnapshot|null>('get_policy_snapshot',{owner:DEMO_OWNER,recipient:DEMO_RECIPIENT},MVP_CONTRACT)]);
+    if(!fresh||!scope)throw new Error('FINAL demo Vault or policy missing');
+    ownerPreflight({owner:DEMO_OWNER,agent:DEMO_AGENT,recipient:DEMO_RECIPIENT,
+      amount:DEMO_AMOUNT,vault:fresh,policy:scope,nowNs:BigInt(Date.now())*1_000_000n});
+    return {fresh,scope};
+  }
+  async function demoGrant(){
+    if(owner!==DEMO_OWNER)throw new Error(`Connect ${DEMO_OWNER} in Meteor first`);
+    if(!demoAgentSeen)throw new Error(`Connect ${DEMO_AGENT} in Meteor first to confirm the account is available`);
+    await pinned();const fresh=await view<Vault|null>('get_vault',{owner:DEMO_OWNER},MVP_CONTRACT);
+    if(!fresh)throw new Error('Owner Vault missing at FINAL');
+    if(fresh[3]===DEMO_AGENT&&BigInt(fresh[4])>BigInt(Date.now()+5*60_000)*1_000_000n)
+      throw new Error('Agent grant is already active; do not renew it again');
+    const expiry=BigInt(Date.now()+24*60*60_000)*1_000_000n;
+    setDemoMessage('Awaiting owner signature in Meteor for a 24-hour grant.');
+    const hash=await call('set_agent',{agent:DEMO_AGENT,expires_at_ns:expiry.toString()});
+    if(hash){saveDemo({...demo,grant_hash:hash});setDemoMessage(`Grant verified FINAL: ${hash}`);}
+    else setDemoMessage('Grant not verified. Inspect the wallet status and reconcile any UNKNOWN outcome before continuing.');
+  }
+  async function demoAuthorize(){
+    if(owner!==DEMO_OWNER)throw new Error(`Connect ${DEMO_OWNER} in Meteor first`);
+    if(demo.authorize_hash||demo.request_hash||demo.execute_hash)throw new Error('This demo payment already has a transaction; do not reuse its ID');
+    const {scope}=await demoPreflight();
+    const id=demo.id||`ag-demo-${crypto.randomUUID().replace(/-/g,'')}`;
+    if(!validDemoId(id))throw new Error('Invalid demo payment ID');
+    const existing=await view<PaymentAuthorization|null>('get_payment_authorization',{owner:DEMO_OWNER,id},MVP_CONTRACT);
+    if(existing)throw new Error('Payment ID already used on chain');
+    saveDemo({...demo,id});
+    const args=authorizeArgs(id,DEMO_AGENT,DEMO_RECIPIENT,DEMO_AMOUNT,scope.policy_version,
+      BigInt(Date.now()+55*60_000)*1_000_000n);
+    setDemoMessage('Policy checked at FINAL. Awaiting owner signature in Meteor for exact 0.001 NEAR authorization.');
+    const hash=await call('authorize_payment',args);
+    if(hash){saveDemo({...demo,id,authorize_hash:hash});setDemoMessage(`Authorization verified FINAL: ${hash}. Switch Meteor to ${DEMO_AGENT}.`);}
+    else setDemoMessage('Authorization not verified. Inspect the wallet status and reconcile any UNKNOWN outcome before continuing.');
+  }
+  async function reconcileDemoAgent(saved:Pending){
+    if(!saved.hash||owner!==DEMO_AGENT||!demo.id)throw new Error('Agent account, payment ID and transaction hash required');
+    if(saved.method!=='request_payment'&&saved.method!=='execute_payment')throw new Error('Unexpected pending agent method');
+    await pinned();
+    const auth=await view<PaymentAuthorization|null>('get_payment_authorization',{owner:DEMO_OWNER,id:demo.id},MVP_CONTRACT);
+    if(!auth||auth[1]!==DEMO_AGENT||auth[2]!==DEMO_RECIPIENT||auth[3]!==DEMO_AMOUNT.toString())
+      throw new Error('Exact owner authorization does not match this demo');
+    const exactArgs=saved.method==='request_payment'?{owner:DEMO_OWNER,id:demo.id,recipient:DEMO_RECIPIENT,
+      amount:DEMO_AMOUNT.toString(),policy_version:auth[4]}:{owner:DEMO_OWNER,id:demo.id};
+    const exactGas=saved.method==='request_payment'?50_000_000_000_000n:GAS;
+    if(JSON.stringify(saved.args)!==JSON.stringify(exactArgs)||saved.gas!==exactGas.toString()||saved.deposit!=='0')
+      throw new Error('Saved pending agent call differs from exact demo scope');
+    const expected={hash:saved.hash,signer:DEMO_AGENT,method:saved.method,args:exactArgs,gas:exactGas,deposit:0n};
+    const transactions=await demoTx(saved.hash);
+    if(!transactions.every(tx=>verifyFinalCall(tx,expected)))throw new Error('Two-RPC exact FINAL transaction/receipts not verified; outcome remains UNKNOWN');
+    const details=await Promise.all(['https://test.rpc.fastnear.com','https://testnet-rpc.intea.rs'].map(url=>
+      demoRead('get_payment_details',{owner:DEMO_OWNER,id:demo.id},url) as Promise<PaymentDetails|null>));
+    if(saved.method==='request_payment'){
+      if(!details.every(row=>row?.[0]===0&&row[1]===DEMO_AMOUNT.toString()&&row[2]===DEMO_RECIPIENT))
+        throw new Error('FINAL REQUEST state mismatch; outcome remains UNKNOWN');
+      saveDemo({...demo,request_hash:saved.hash});setDemoMessage(`REQUEST verified FINAL: ${saved.hash}. Review EXECUTE before signing.`);
+    }else{
+      if(!transactions.every((tx,i)=>verifyDemoTransfer(tx,details[i])))
+        throw new Error('FINAL transfer/callback receipts or SETTLED state not verified; outcome remains UNKNOWN');
+      const finalVault=await view<Vault|null>('get_vault',{owner:DEMO_OWNER},MVP_CONTRACT);
+      if(!finalVault||finalVault[1]!=='0'||!saved.before_vault||
+        BigInt(finalVault[0])!==BigInt(saved.before_vault[0])-DEMO_AMOUNT)
+        throw new Error('FINAL Vault balance did not reconcile; outcome remains UNKNOWN');
+      const recipientAccount=await account(DEMO_RECIPIENT);
+      if(saved.before_recipient&&BigInt(recipientAccount.amount)<BigInt(saved.before_recipient)+DEMO_AMOUNT)
+        throw new Error('FINAL recipient balance did not reconcile; outcome remains UNKNOWN');
+      setDemoRecipientBalance(recipientAccount.amount);
+      setDemoVaultBalance(finalVault[0]);
+      setDemoVerified(true);
+      saveDemo({...demo,execute_hash:saved.hash});setDemoMessage(`FINAL SETTLED 0.001 NEAR to ${DEMO_RECIPIENT}: ${saved.hash}`);
+    }
+    setDemoDetails(details[0]);localStorage.removeItem(pendingKey(DEMO_AGENT));setPending(null);setLastHash(saved.hash);
+  }
+  async function demoAgentCall(method:'request_payment'|'execute_payment'){
+    if(owner!==DEMO_AGENT||!demo.id||!demo.authorize_hash||busy||inFlight.current)throw new Error(`Connect ${DEMO_AGENT} in Meteor after a verified owner authorization`);
+    inFlight.current=true;setBusy(true);let promptStarted=false;
+    try{
+      if(loadPending(DEMO_AGENT))throw new Error('Prior agent transaction is UNKNOWN; reconcile it first');
+      const {fresh,scope}=await demoPreflight();
+      const auth=await view<PaymentAuthorization|null>('get_payment_authorization',{owner:DEMO_OWNER,id:demo.id},MVP_CONTRACT);
+      if(!auth||auth[0]!== (method==='request_payment'?6:0)||auth[1]!==DEMO_AGENT||
+        auth[2]!==DEMO_RECIPIENT||auth[3]!==DEMO_AMOUNT.toString()||auth[4]!==fresh[5]||
+        BigInt(auth[5])<=BigInt(Date.now())*1_000_000n)throw new Error('FINAL one-use owner authorization is missing, stale or in the wrong state');
+      if(method==='execute_payment'){
+        if(!demo.request_hash)throw new Error('FINAL REQUEST hash required before EXECUTE');
+        const requestArgs={owner:DEMO_OWNER,id:demo.id,recipient:DEMO_RECIPIENT,amount:DEMO_AMOUNT.toString(),policy_version:fresh[5]};
+        const verified=(await demoTx(demo.request_hash)).every(tx=>verifyFinalCall(tx,{hash:demo.request_hash,
+          signer:DEMO_AGENT,method:'request_payment',args:requestArgs,gas:50_000_000_000_000n,deposit:0n}));
+        if(!verified)throw new Error('Exact FINAL REQUEST proof missing');
+      }
+      const args=method==='request_payment'?{owner:DEMO_OWNER,id:demo.id,recipient:DEMO_RECIPIENT,
+        amount:DEMO_AMOUNT.toString(),policy_version:scope.policy_version}:{owner:DEMO_OWNER,id:demo.id};
+      const gas=method==='request_payment'?50_000_000_000_000n:GAS;
+      const {instance,selected}=await selectedWallet(DEMO_AGENT);
+      const action=await instance.createAction({id:'near::sign_transactions',input:{target:selected.identifier,
+        transactions:[{receiverId:MVP_CONTRACT,actions:[actionCreators.functionCall(method,args,gas,0n)]}],useFunctionCallKey:false}});
+      const beforeRecipient=method==='execute_payment'?await account(DEMO_RECIPIENT):null;
+      const marker:Pending={method,args,deposit:'0',gas:gas.toString(),hash:null,before_vault:fresh,
+        before_recipient:beforeRecipient?.amount,created_at:new Date().toISOString()};
+      localStorage.setItem(pendingKey(DEMO_AGENT),JSON.stringify(marker));setPending(marker);
+      setDemoMessage(`Awaiting ${DEMO_AGENT} signature in Meteor for ${method}.`);promptStarted=true;
+      const output=await action.promptForExecution();const hash=output[0]?.transaction?.hash;
+      if(!hash)throw new Error('Meteor returned no hash; inspect wallet Activity before retrying');
+      const withHash={...marker,hash};localStorage.setItem(pendingKey(DEMO_AGENT),JSON.stringify(withHash));setPending(withHash);
+      setDemoMessage(`${method} pending FINAL: ${hash}`);await reconcileDemoAgent(withHash);
+    }catch(error){
+      if(promptStarted&&isMeteorCancellation(error)&&!loadPending(DEMO_AGENT)?.hash){
+        localStorage.removeItem(pendingKey(DEMO_AGENT));setPending(null);
+        setDemoMessage(`${method}: explicitly cancelled in Meteor; no transaction submitted.`);
+      }else setDemoMessage(`${method}: ${errorText(error)} ${promptStarted?'Outcome UNKNOWN until reconciled.':'No wallet submission started.'}`);
+    }finally{setBusy(false);inFlight.current=false;}
+  }
+  async function demoStatus(){
+    if(!demo.id)throw new Error('No demo payment ID saved');
+    await pinned();const row=await view<PaymentDetails|null>('get_payment_details',{owner:DEMO_OWNER,id:demo.id},MVP_CONTRACT);
+    setDemoVerified(false);setDemoDetails(row);
+    const savedAuth=loadRecords(DEMO_OWNER).find(item=>item.id===demo.id)?.authorize_hash;
+    if(savedAuth&&!demo.authorize_hash)saveDemo({...demo,authorize_hash:savedAuth});
+    setDemoMessage(row?`FINAL chain status: ${statuses[row[0]]??'UNKNOWN'}. Verify the exact EXECUTE receipts before claiming settlement.`:'No payment with this ID at FINAL.');
+  }
+  async function demoVerifyResult(){
+    if(!demo.id||!demo.execute_hash)throw new Error('Exact EXECUTE hash and payment ID required');
+    await pinned();const args={owner:DEMO_OWNER,id:demo.id};
+    const txs=await demoTx(demo.execute_hash);
+    const details=await Promise.all(['https://test.rpc.fastnear.com','https://testnet-rpc.intea.rs'].map(url=>
+      demoRead('get_payment_details',args,url) as Promise<PaymentDetails|null>));
+    if(!txs.every((tx,i)=>verifyFinalCall(tx,{hash:demo.execute_hash,signer:DEMO_AGENT,
+      method:'execute_payment',args,gas:GAS,deposit:0n})&&verifyDemoTransfer(tx,details[i])))
+      throw new Error('Two-RPC FINAL settlement and exact transfer/callback receipts do not match');
+    const finalVault=await view<Vault|null>('get_vault',{owner:DEMO_OWNER},MVP_CONTRACT);
+    if(!finalVault)throw new Error('FINAL owner Vault unavailable');
+    const recipientAccount=await account(DEMO_RECIPIENT);
+    setDemoRecipientBalance(recipientAccount.amount);setDemoVaultBalance(finalVault[0]);
+    setDemoDetails(details[0]);setDemoVerified(true);
+    setDemoMessage(`FINAL settlement independently verified: ${demo.execute_hash}`);
   }
   const sessionReady=!!owner&&agentSession?.account_id===owner&&agentSession.expires_at>Date.now()/1000;
   const signerReady=sessionReady&&agentSignerStatus==='CONFIGURED_APPROVAL_REQUIRED';
   const currentAgentRow=agentRows.find(row=>row.id===paymentId);
+  const demoGrantActive=owner===DEMO_OWNER&&vault?.[3]===DEMO_AGENT&&BigInt(vault[4])>BigInt(Date.now())*1_000_000n;
   const agentStep=!owner?'Connect wallet':!vault?'Create Vault':!sessionReady?'Verify owner session':
     cloudReadOnly&&!sharedExecutor?'Use Vault; agent execution unavailable':
     !sharedExecutor&&provisioning?.state==='REVOKED'?'Agent retired; rotation required':
@@ -486,7 +670,7 @@ function App(){
       <label>10-minute window limit NEAR<input value={windowLimit} onChange={e=>setWindowLimit(e.target.value)}/></label>
       <label>Extra approval above NEAR<input value={threshold} onChange={e=>setThreshold(e.target.value)}/></label>
       <p>Creation reserves 0.01 NEAR for storage; deposit spendable funds separately. Initial limits cannot be edited by this contract.</p>
-      <button disabled={busy||!!pending} onClick={()=>run(createVault)}>Create My Vault in Meteor</button></>}</section>
+      <button disabled={busy||!!pending||owner===DEMO_AGENT} onClick={()=>run(createVault)}>Create My Vault in Meteor</button></>}</section>
     {vault&&<><section className="card"><h2>My Policy & Agent</h2>
       <label>Allowed recipient<input value={recipient} onChange={e=>{setRecipient(e.target.value.trim());setJudgeDecision(null);}} placeholder="recipient.testnet"/></label>
       <button disabled={busy||!!pending} onClick={()=>run(updatePolicy)}>Allow recipient</button>
@@ -495,7 +679,7 @@ function App(){
       <button disabled={busy||!!pending||!!creationPending||(cloudReadOnly?!sharedExecutor:!signerReady||(!sharedExecutor&&provisioning?.state!=='ACCOUNT_FINAL'))||(sharedExecutor?sharedExecutor.agent!==agent:provisioning?.agent!==agent)} onClick={()=>run(()=>setGrant())}>Grant agent for 24 hours</button>
       <button className="secondary" disabled={busy||!!pending||!vault[3]} onClick={()=>run(()=>setGrant(true))}>Revoke agent</button>
     </section><section className="card wide"><h2>New Payment</h2>
-      <p>Owner signs <code>authorize_payment</code>. The agent later signs REQUEST and EXECUTE with its own restricted key. Public execution is unavailable until an isolated agent service is deployed.</p>
+      <p>Owner signs <code>authorize_payment</code>. The manual Meteor demo below can sign agent REQUEST and EXECUTE after an active grant. Autonomous execution remains unavailable without an isolated agent service.</p>
       <label>Recipient<input value={recipient} onChange={e=>{setRecipient(e.target.value.trim());setJudgeDecision(null);}}/></label>
       <label>Amount NEAR<input value={payAmount} onChange={e=>{setPayAmount(e.target.value);setJudgeDecision(null);}}/></label>
       <label>Payment ID (generated if blank)<input value={paymentId} onChange={e=>setPaymentId(e.target.value.trim())}/></label>
@@ -540,6 +724,23 @@ function App(){
           {row.execute_hash&&<> · EXECUTE <a href={explorer(row.execute_hash)}>{row.execute_hash}</a></>}
         </li>)}</ul></>}
     </section>}
+    <section className="card wide" aria-label="Manual Testnet payment demo"><h2>Manual 0.001 NEAR Vault payment</h2>
+      <p>Owner {DEMO_OWNER} → agent {DEMO_AGENT} → recipient {DEMO_RECIPIENT}. First connect the agent in Meteor without signing a transaction, then connect the owner. Each transaction requires a separate Meteor confirmation. This manual wallet path does not prove use of the agent's restricted FunctionCall key; cloud autonomous execution remains unavailable.</p>
+      <p>Connected account: <strong>{owner||'none'}</strong>. Agent account seen in Meteor: <strong>{demoAgentSeen?'yes':'not yet'}</strong>. Payment ID: <strong>{demo.id||'created when owner authorizes'}</strong>.</p>
+      <p role="status">{demoMessage}</p>
+      <div className="actions">
+        <button disabled={busy||!!pending||owner!==DEMO_OWNER||!demoAgentSeen||!!demo.authorize_hash} onClick={()=>run(demoGrant)}>1. Owner: Renew Agent Grant</button>
+        <button disabled={busy||!!pending||!demoGrantActive||!!demo.authorize_hash} onClick={()=>run(demoAuthorize)}>2. Owner: Authorize 0.001 NEAR</button>
+        <button disabled={busy||!!pending||owner!==DEMO_AGENT||!demo.authorize_hash||!!demo.request_hash} onClick={()=>run(()=>demoAgentCall('request_payment'))}>3. Agent: Request Payment</button>
+        <button disabled={busy||!!pending||owner!==DEMO_AGENT||!demo.request_hash||!!demo.execute_hash} onClick={()=>run(()=>demoAgentCall('execute_payment'))}>4. Agent: Execute Payment</button>
+        <button className="secondary" disabled={busy||!demo.id} onClick={()=>run(demoStatus)}>Refresh FINAL payment status</button>
+        <button className="secondary" disabled={busy||!demo.execute_hash} onClick={()=>run(demoVerifyResult)}>Verify FINAL EXECUTE receipts</button>
+      </div>
+      {demoDetails&&<p>FINAL contract status: <strong>{statuses[demoDetails[0]]??'UNKNOWN'}</strong>; {displayNear(demoDetails[1])} NEAR to {demoDetails[2]}. Settlement proof requires the EXECUTE receipt.</p>}
+      {demoVerified&&demo.execute_hash&&demoDetails?.[0]===4&&<p><strong>FINAL SETTLED</strong> · recipient {DEMO_RECIPIENT} · amount 0.001 NEAR{demoVaultBalance?` · Vault available ${displayNear(demoVaultBalance)} NEAR`:''}{demoRecipientBalance?` · recipient balance ${displayNear(demoRecipientBalance)} NEAR`:''}.</p>}
+      <ul className="history">{([['Grant',demo.grant_hash],['Authorize',demo.authorize_hash],['REQUEST',demo.request_hash],['EXECUTE',demo.execute_hash]] as const).filter(([,hash])=>!!hash).map(([label,hash])=><li key={label}>{label}: <a href={explorer(hash)} target="_blank" rel="noopener noreferrer">{hash}</a></li>)}</ul>
+      <p className="muted">An authorization alone is not a payment. If a wallet outcome is unknown, reconcile its exact hash above before any further signature.</p>
+    </section>
     <p className="muted">Testnet only · No private keys in this site · <a href="/">Historical proof showcase</a></p>
   </main>;
 }

@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MVP_CONTRACT,exactNear,ownerPreflight,authorizeArgs,verifyFinalCall,
-  verifyAuthorization,recordKey,pendingKey,type Vault,type PolicySnapshot} from '../src/lib/mvp-core.ts';
+  verifyAuthorization,verifyDemoTransfer,validDemoId,DEMO_RECIPIENT,DEMO_AMOUNT,recordKey,pendingKey,
+  type Vault,type PolicySnapshot,type FinalTx,type PaymentDetails} from '../src/lib/mvp-core.ts';
 
 const owner='b-owner.testnet',agent='b-agent.testnet',recipient='vendor.testnet';
 const vault:Vault=['100000000000000000000000','0','10000000000000000000000',agent,'9999999999999999999',3];
@@ -44,4 +45,25 @@ test('FINAL call requires exact signer, receiver, method, args, gas and successf
   assert.equal(verifyFinalCall({...tx,transaction:{...tx.transaction,signer_id:owner}},expected),false);
   assert.equal(verifyFinalCall({...tx,receipts_outcome:[{outcome:{status:{Failure:{}}}}]},expected),false);
   assert.equal(verifyFinalCall(tx,{...expected,args:{owner:'a-owner.testnet',id:'ag-unique'}}),false);
+});
+
+test('manual demo settlement requires exact Vault transfer and callback, not just a settled label',()=>{
+  assert.equal(validDemoId('ag-demo-0123456789abcdef0123456789abcdef'),true);
+  assert.equal(validDemoId('ag-e7f53f5b9e714fc4ac09d7eb45ee2618'),false);
+  const details:PaymentDetails=[4,DEMO_AMOUNT.toString(),DEMO_RECIPIENT,4,1];
+  const tx={receipts:[
+    {receipt_id:'transfer',predecessor_id:MVP_CONTRACT,receiver_id:DEMO_RECIPIENT,
+      receipt:{Action:{actions:[{Transfer:{deposit:DEMO_AMOUNT.toString()}}]}}},
+    {receipt_id:'callback',predecessor_id:MVP_CONTRACT,receiver_id:MVP_CONTRACT,
+      receipt:{Action:{actions:[{FunctionCall:{method_name:'on_transfer'}}]}}},
+  ],receipts_outcome:[{id:'transfer',outcome:{status:{SuccessValue:''}}},
+    {id:'callback',outcome:{status:{SuccessValue:''}}}]} as FinalTx;
+  assert.equal(verifyDemoTransfer(tx,details),true);
+  assert.equal(verifyDemoTransfer(tx,[6,...details.slice(1)] as PaymentDetails),false);
+  assert.equal(verifyDemoTransfer(tx,[4,details[1],'other.testnet',4,1]),false);
+  assert.equal(verifyDemoTransfer({...tx,receipts:tx.receipts?.slice(0,1)},details),false);
+  assert.equal(verifyDemoTransfer({...tx,receipts:[
+    {receipt_id:'transfer',predecessor_id:'attacker.testnet',receiver_id:DEMO_RECIPIENT,
+      receipt:{Action:{actions:[{Transfer:{deposit:DEMO_AMOUNT.toString()}}]} }},tx.receipts![1]]},details),false);
+  assert.equal(verifyDemoTransfer({...tx,receipts_outcome:tx.receipts_outcome?.slice(0,1)},details),false);
 });

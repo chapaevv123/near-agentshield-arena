@@ -3,6 +3,11 @@ export const MVP_CODE_HASH='4f4xhV9UKijpuBxyu9rhjFQ8wrC5nv6XQYCAZ82XqwgA';
 export const MVP_GENESIS='FWJ9kR6KFWoyMoNjpLXXGHeuiy7tEY6GmoFeCA5yuc6b';
 export const STORAGE_DEPOSIT=10n**22n;
 export const GAS=100_000_000_000_000n;
+export const DEMO_OWNER='safeibis9110.testnet';
+export const DEMO_AGENT='openroom8315.testnet';
+export const DEMO_RECIPIENT='soundestate8404.testnet';
+export const DEMO_AMOUNT=10n**21n;
+export const validDemoId=(id:string)=>/^ag-demo-[0-9a-f]{32}$/.test(id);
 export const ACCOUNT=/^(?:(?=.{2,64}$)[a-z0-9]+(?:[._-][a-z0-9]+)*\.testnet|[0-9a-f]{64})$/;
 export type Vault=[string,string,string,string|null,string,number];
 export type PolicySnapshot={policy_version:string;agent:string|null;agent_expires_at_ns:string;
@@ -45,8 +50,9 @@ export function authorizeArgs(id:string,agent:string,recipient:string,amount:big
 }
 export type FinalTx={final_execution_status:string;status:Record<string,unknown>;
   transaction:{hash:string;signer_id:string;receiver_id:string;actions:Record<string,unknown>[]};
+  receipts?:{receipt_id:string;predecessor_id:string;receiver_id:string;receipt?:{Action?:{actions:Record<string,unknown>[]}}}[];
   transaction_outcome?:{outcome:{status:Record<string,unknown>}};
-  receipts_outcome?:{outcome:{status:Record<string,unknown>}}[]};
+  receipts_outcome?:{id?:string;outcome:{status:Record<string,unknown>}}[]};
 export function verifyFinalCall(tx:FinalTx,expected:{hash:string;signer:string;method:string;
   args:Record<string,unknown>;gas:bigint;deposit:bigint}):boolean{
   const actions=tx.transaction?.actions;
@@ -66,6 +72,20 @@ export function verifyFinalCall(tx:FinalTx,expected:{hash:string;signer:string;m
 export function verifyAuthorization(row:PaymentAuthorization|null,args:ReturnType<typeof authorizeArgs>):boolean{
   return !!row&&row[0]===6&&row[1]===args.agent&&row[2]===args.recipient&&
     row[3]===args.amount&&row[4]===args.policy_version&&row[5]===args.expires_at_ns;
+}
+export function verifyDemoTransfer(tx:FinalTx,details:PaymentDetails|null):boolean{
+  if(!details||details[0]!==4||details[1]!==DEMO_AMOUNT.toString()||details[2]!==DEMO_RECIPIENT)return false;
+  const transfer=tx.receipts?.find(receipt=>{
+    const actions=receipt.receipt?.Action?.actions;
+    return receipt.predecessor_id===MVP_CONTRACT&&receipt.receiver_id===DEMO_RECIPIENT&&actions?.length===1&&
+      String((actions[0].Transfer as {deposit?:string}|undefined)?.deposit)===DEMO_AMOUNT.toString();
+  });
+  const callback=tx.receipts?.find(receipt=>receipt.predecessor_id===MVP_CONTRACT&&
+    receipt.receiver_id===MVP_CONTRACT&&receipt.receipt?.Action?.actions?.some(action=>
+      (action.FunctionCall as {method_name?:string}|undefined)?.method_name==='on_transfer'));
+  const succeeded=(id:string|undefined)=>!!id&&!!tx.receipts_outcome?.some(row=>row.id===id&&
+    ('SuccessValue' in row.outcome.status||'SuccessReceiptId' in row.outcome.status));
+  return succeeded(transfer?.receipt_id)&&succeeded(callback?.receipt_id);
 }
 export function recordKey(owner:string){if(!ACCOUNT.test(owner))throw new Error('Invalid owner');return `agentshield-mvp:${MVP_CONTRACT}:${owner}:payments-v1`;}
 export function pendingKey(owner:string){if(!ACCOUNT.test(owner))throw new Error('Invalid owner');return `agentshield-mvp:${MVP_CONTRACT}:${owner}:pending-v1`;}
