@@ -1,6 +1,8 @@
 name: AgentShield Lite Cloudflare release
 
 on:
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       operation:
@@ -60,7 +62,7 @@ jobs:
         run: npx --no-install wrangler deploy --dry-run --config wrangler.toml
 
   migrate:
-    if: ${{ inputs.operation == 'migrate' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'migrate' }}
     needs: check
     runs-on: ubuntu-24.04
     environment: cloudflare-d1-migrate
@@ -100,7 +102,7 @@ jobs:
           npx --no-install wrangler d1 execute DB --remote --command "SELECT 1 FROM rate_limits LIMIT 0" --config wrangler.toml
 
   deploy:
-    if: ${{ inputs.operation == 'deploy' }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'deploy' }}
     needs: check
     runs-on: ubuntu-24.04
     environment: cloudflare-worker-deploy
