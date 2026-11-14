@@ -1,0 +1,33 @@
+name: AgentShield Lite check only
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned Wrangler
+        run: npm ci --prefix deploy/cloudflare
+      - name: Worker and D1 identity security tests
+        run: node --test deploy/cloudflare/worker.test.mjs deploy/cloudflare/verify_d1_identity.test.mjs
+      - name: SQL compatibility tests
+        run: python -m unittest deploy.cloudflare.test_d1_local -q
+      - name: Verify check config matches release config
+        run: python deploy/cloudflare/check_config.py
+      - name: Local D1 migration on ephemeral runner
+        working-directory: deploy/cloudflare
+        run: |
+          npx --no-install wrangler d1 migrations apply agentshield-lite --local --config wrangler.check.toml
+          npx --no-install wrangler d1 execute DB --local --command "SELECT 1 FROM challenges LIMIT 0" --config wrangler.check.toml
+          npx --no-install wrangler d1 execute DB --local --command "SELECT 1 FROM sessions LIMIT 0" --config wrangler.check.toml
+          npx --no-install wrangler d1 execute DB --local --command "SELECT 1 FROM observed_payments LIMIT 0" --config wrangler.check.toml
+          npx --no-install wrangler d1 execute DB --local --command "SELECT 1 FROM rate_limits LIMIT 0" --config wrangler.check.toml

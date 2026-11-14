@@ -1,68 +1,114 @@
 # AgentShield Arena
 
-**Website:** https://near-agentshield-arena.vercel.app
+**Public website:** https://near-agentshield-arena.vercel.app
 
-**Public source:** https://github.com/chapaevv123/near-agentshield-arena
+**Safe public source snapshot:** https://github.com/chapaevv123/near-agentshield-arena
 
-**Secure, policy-bound payments for AI agents on NEAR Testnet.** This independent hackathon project is not affiliated with or endorsed by NEAR Protocol.
+## WORKING NOW
 
-![AgentShield Arena public showcase](docs/screenshots/desktop.png)
+- The published landing page shows a historical, independently verified Testnet payment. Its current `/app` route returned HTTP 404 during the 14 November 2026 preflight; the release candidate fixes this locally, but has not been deployed.
+- The local release build serves the existing Meteor Testnet owner workspace at `/app/`: connect/disconnect, read a user's FINAL Vault/policy, create a Vault with fixed initial limits, deposit, set recipient, authorize, revoke an agent grant, withdraw, and reconcile exact wallet transaction hashes before showing FINAL. Every owner transaction requires an explicit Meteor prompt. A read-only Judge Demo estimates ALLOW/DENY from fresh FINAL policy without submitting a payment.
+- The existing Vault v2 contract, historical receipt evidence, and shared restricted executor architecture remain intact. The local owner journey is source, unit and mocked-browser verified; a new public wallet-to-chain journey is still unverified.
 
-## Why it exists
+## EXPERIMENTAL
 
-An AI agent may need to pay for a service, but unrestricted treasury credentials make mistakes and malicious instructions costly. AgentShield Arena keeps owner approval, Vault policy and agent execution separate. The owner authorizes an exact scope; a restricted FunctionCall key lets the agent request and execute only through the Vault; independent FINAL receipt checks prove the outcome.
+- Cloudflare Workers + D1 Free read-only API: NEP-413 owner session, owner-scoped FINAL policy/history, rate limits and policy preflight. A local Worker test is not proof of deployed Cloudflare behavior. The Vercel app can use the approved `VITE_AGENTSHIELD_WORKER_URL` after deployment; without it, wallet owner operations still use NEAR RPC while cloud-only functions show unavailable.
+- A local release branch from the current GitHub `main` is prepared for review. Nothing has been pushed, migrated or deployed by this sprint.
 
-## Real historical Testnet proof
+## NOT AVAILABLE
 
-On 13 November 2026, one policy v4 payment of **0.001 NEAR** settled from `agentshield-arena-v2-stage2.testnet` to `soundestate8404.testnet`. Owner: `safeibis9110.testnet`. Restricted agent: `openroom8315.testnet`. Task `task-ab5b09b7692e4a9d8d9d21241cb9a0d2`, payment `ag-e7f53f5b9e714fc4ac09d7eb45ee2618`.
+- Autonomous agent REQUEST/EXECUTE from the public site. The Windows DPAPI signer and local control plane are outside Lite; there is no approved cloud signer, live key or broadcast endpoint.
+- Public Meteor-to-Vault FINAL E2E for a new owner. **PRODUCT READY = NO** until that result is captured on the deployed app.
 
-| Step | On-chain transaction |
+Judge path after an authorized deployment: **Launch App → Connect Meteor Testnet → Create My Vault with initial limits → Deposit → Read FINAL balance/policy → Check payment against FINAL policy → approve an owner action in Meteor → reconcile FINAL hash → open Testnet Explorer.** If no agent executor is configured, the ALLOW/DENY panel remains an advisory estimate and no agent payment is sent. Capture real screenshots only after that public flow; proposed GIF frames are landing/Launch App, Meteor account, Vault creation prompt, FINAL Vault balance, policy and Judge Demo, FINAL transaction hash, and Explorer receipt.
+
+Exact publication gates, commands, rollback and public E2E checklist: [Lite release runbook](docs/LITE_RELEASE_RUNBOOK_2026-11-14.md).
+
+**Secure payments for AI agents, with owner policy and verifiable NEAR Testnet settlement.** This is an independent hackathon project built on NEAR Testnet, not an official NEAR Protocol product.
+
+![AgentShield Arena desktop showcase](docs/screenshots/desktop.png)
+
+## The problem and solution
+
+An agent can propose a useful payment and still make a costly mistake or follow malicious instructions. AgentShield separates the owner's authority from the agent's limited ability to act. The owner approves an exact scope; a restricted agent key can request and execute only through a shared Vault contract; the recipient, limits, policy, and final receipts are checked independently.
+
+The currently published [showcase](app/showcase/) is a read-only demonstration of a **completed historical Testnet payment**. The release candidate adds the real owner workspace at `/app/` without exposing the protected local backend or simulating a new settlement.
+
+## Real Testnet proof
+
+On 13 November 2026, payment `ag-e7f53f5b9e714fc4ac09d7eb45ee2618` completed under policy v4: **0.001 NEAR** from Vault `agentshield-arena-v2-stage2.testnet` to `soundestate8404.testnet`, owner `safeibis9110.testnet`, restricted agent `openroom8315.testnet`.
+
+| Phase | FINAL transaction |
 | --- | --- |
-| Owner AUTHORIZE | [6YjcdhYxs65JQMtfqDLgMM2PfadMtJQkSfHjmR4KCT1N](https://testnet.nearblocks.io/txns/6YjcdhYxs65JQMtfqDLgMM2PfadMtJQkSfHjmR4KCT1N) |
-| Agent REQUEST | [2Yo8N6TvbtobhWYH8UxvgAAxCrm1FGXduBa82qZCUmr8](https://testnet.nearblocks.io/txns/2Yo8N6TvbtobhWYH8UxvgAAxCrm1FGXduBa82qZCUmr8) |
-| Agent EXECUTE | [ApXoyN7EpG6S8DFX6gfm919tqQFQC4u911MDxU7p4KdS](https://testnet.nearblocks.io/txns/ApXoyN7EpG6S8DFX6gfm919tqQFQC4u911MDxU7p4KdS) |
+| Owner authorization | [6YjcdhYxs65JQMtfqDLgMM2PfadMtJQkSfHjmR4KCT1N](https://testnet.nearblocks.io/txns/6YjcdhYxs65JQMtfqDLgMM2PfadMtJQkSfHjmR4KCT1N) |
+| Agent request | [2Yo8N6TvbtobhWYH8UxvgAAxCrm1FGXduBa82qZCUmr8](https://testnet.nearblocks.io/txns/2Yo8N6TvbtobhWYH8UxvgAAxCrm1FGXduBa82qZCUmr8) |
+| Settlement execution | [ApXoyN7EpG6S8DFX6gfm919tqQFQC4u911MDxU7p4KdS](https://testnet.nearblocks.io/txns/ApXoyN7EpG6S8DFX6gfm919tqQFQC4u911MDxU7p4KdS) |
 
-FastNear and Intear independently observed successful FINAL execution, transfer receipt `bhH1rHpPWmLPrWKo8dUYfQuWQxhpUNezUEEoESR1frv`, and callback receipt `2nw4yLNc1aF2MLP1thgKBUwDTWhq7fBrtnvm7qeEtVQ6`. The authenticated local backend recorded task `COMPLETED`, revision 9, evidence `TESTNET_TWO_RPC_FINAL`. See the [proof summary](docs/TESTNET_PROOF_2026-11-13.md). This is a saved historical settlement, not live polling or a new visitor's payment.
+FastNear and Intear independently confirmed the exact FINAL execute outcome, transfer receipt `bhH1rHpPWmLPrWKo8dUYfQuWQxhpUNezUEEoESR1frv` and callback receipt `2nw4yLNc1aF2MLP1thgKBUwDTWhq7fBrtnvm7qeEtVQ6`. The backend task `task-ab5b09b7692e4a9d8d9d21241cb9a0d2` is `COMPLETED` at revision 9 with `TESTNET_TWO_RPC_FINAL` settlement evidence. See [proof details](docs/TESTNET_PROOF_2026-11-13.md). This proof describes one historical payment, not a new user's live Vault.
 
-## What is in this public repository
+## Product features
 
-- `app/showcase/`: responsive, read-only product site with an interactive proof walkthrough, exact explorer links, security model, architecture and documentation.
-- `contract/`: reference source and security tests for the multitenant Vault. The public site does not invoke its payment methods. This snapshot does not claim byte-for-byte reproducibility of the deployed WASM.
-- `docs/`: Testnet proof, desktop/mobile screenshots, demo script and submission drafts.
+- Owner authorization of an exact payment scope; policy v4 amount and recipient restrictions.
+- Restricted FunctionCall key on the agent account, limited to the Vault payment methods.
+- Durable one-shot transaction claims and read-only reconciliation after uncertain broadcasts.
+- FINAL receipt and settlement graph verification through two independent RPC providers.
+- Audited backend task transitions, local Stage 2 owner UI, and a separate public read-only proof walkthrough.
 
-The protected local owner UI, NEP-413 session handling, SQLite backend, Windows DPAPI signer, native transaction sender, journals and operational runbooks are deliberately **not distributed** in this public snapshot. The site has no wallet button, signing path, local API request or secret. It does not offer public self-service payments.
+## Architecture and security
 
-## Architecture and safeguards
+`Owner → Policy / shared Vault → Restricted agent → Request → Execute → Recipient`
 
-`Owner → Policy / Vault → Restricted agent → Request → Execute → Recipient`
+The shared Vault contract enforces payment policy. The protected agent signer and journal remain on the local Windows host with DPAPI CurrentUser custody. The owner session uses authenticated NEP-413 locally. Neither the public build nor this repository's publication set should contain private keys, bearer tokens, SQLite databases, DPAPI stores, or journals. The public showcase performs no signing, RPC mutation, or local API call.
 
-The Vault enforces amount and recipient restrictions. A restricted agent key can call only payment methods. A protected local sender claims each transaction hash before one broadcast and treats ambiguous results as read-only reconciliation. The backend's audit trail and two independent FINAL RPC verifiers are distinct from the read-only site. This repository contains public source and proof without operational secrets.
+The repository contains an earlier single-owner contract in `contract/` and an isolated multitenant experiment in `spike/multitenant-contract/`; their Borsh state is incompatible. Do not deploy the spike onto the historical Vault or a personal account. [Architecture and product acceptance](docs/COMPLETE_PRODUCT_ACCEPTANCE.md) describes the broader product scope; the public site shows only verified capabilities.
 
-## Run the public site
+## Tech stack and local run
 
-Requires Node.js 22+ and npm.
+- Frontend: React 19, TypeScript 5, Vite 7; Playwright browser checks.
+- Contract: Rust / NEAR SDK; local backend: Python and SQLite; protected G signer: Rust/Windows DPAPI.
+- Public hosting target: Vercel HTTPS for landing and owner wallet actions; Cloudflare Workers + D1 Free for optional read-only owner cloud API. Neither depends on the owner's PC after deployment.
+
+Requirements: Node.js 22+, npm; Python 3.11+ only for local Stage 2 and release scans.
 
 ```sh
 cd app
-npm ci
+npm install
 npm run build:showcase
 npm run preview:showcase
 ```
 
-Open `http://127.0.0.1:4182`. Run `npm run test:showcase` for desktop, tablet, mobile, navigation, link and keyboard smoke tests. The Playwright configuration uses Microsoft Edge locally; if Edge is unavailable, install a compatible Playwright Chromium browser or adjust the test channel. The production site is a static Vite build; Vercel root is `app` and output is `dist-showcase`.
+Open `http://127.0.0.1:4182` locally. The public Vercel project root is **`app`** in the isolated release snapshot; `app/vercel.json` runs `npm run build:showcase` and publishes `dist-showcase`. The protected developer flow remains available through `start-stage2.cmd` on Windows and is deliberately excluded from the public build.
 
-Run `npm run test:live` from `app/` to check the published HTTPS site in a fresh browser context, including the GitHub link, three explorer links, mobile navigation, console errors and localhost requests.
+## Checks
 
-Run `python scripts/audit_publish.py` from the repository root to scan the exact public files and every reachable Git blob for sensitive paths and key/token markers.
+```sh
+cd app
+npm test
+npm run build
+npm run build:showcase
+npm run test:showcase
+```
 
-## Known limits
+From the repository root:
 
-The public showcase is read only. It documents one historical completed payment and a saved Vault snapshot, not current account balances or general user onboarding. Explorer availability depends on the external operator. No public backend, wallet signing or agent execution is deployed. The official NEAR symbol used in the site comes from the [Wikimedia Commons CC0 file](https://commons.wikimedia.org/wiki/File:Near_Protocol_Logo.png); AgentShield Arena is an independent project.
+```sh
+python tools/scan_public_secrets.py
+python tools/audit_git_publication.py
+git diff --check
+```
+
+The showcase Playwright test uses installed Microsoft Edge and saves [desktop](docs/screenshots/desktop.png) and [mobile](docs/screenshots/mobile.png) screenshots. These browser checks are not a new real wallet E2E. See [release notes and interaction registry](docs/HACKATHON_RELEASE_2026-11-13.md).
+
+## Limits and publication
+
+The currently deployed public experience is read only and `/app` returned 404 in the latest preflight. The prepared Vercel build includes `/app/` and real wallet owner actions; it has not been published. The historical showcase snapshot may have changed. Cloud agent signing remains unavailable.
+
+The owner authorized safe publication. A separate clean-history snapshot at `release/public-snapshot/` is published through the public source link above; the original repository retains extensive uncommitted Stage 2 work and no public remote. Do not run `git reset` or `git clean`. See [current status](PROJECT_STATUS.md) and [release preparation](docs/HACKATHON_RELEASE_2026-11-13.md).
 
 ## Hackathon
 
-Primary track: **AI Security & Defense**. The [NEAR Hackathon](https://near.army/) allows one submission across multiple fitting tracks; Agent Economy is a possible secondary fit because a restricted agent completed a real payment. [Demo and submission drafts](docs/HACKATHON_DEMO_SUBMISSION_2026-11-13.md) are included. No prize or endorsement is claimed.
+Recommended primary track: **AI Security & Defense**. The [official event page](https://near.army/) permits multiple fitting tracks in one submission; Agent Economy is a possible secondary fit because a restricted agent completed a real payment. [Demo script and submission draft](docs/HACKATHON_DEMO_SUBMISSION_2026-11-13.md) are prepared for owner review; nothing has been posted or submitted.
 
 ## License
 
-No license has been approved by the owner. All rights are reserved until one is selected.
+No license has been approved. All rights remain with the repository owner until a license is selected and added.

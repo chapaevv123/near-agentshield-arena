@@ -1,0 +1,8 @@
+{
+  "name": "agentshield-cloudflare-release",
+  "private": true,
+  "version": "0.0.0",
+  "devDependencies": {
+    "wrangler": "4.162.0"
+  }
+}

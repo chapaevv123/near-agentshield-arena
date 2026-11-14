@@ -1,0 +1,10 @@
+# Local D1 integration only. This configuration is never deployed.
+name = "agentshield-lite-check"
+main = "worker.mjs"
+compatibility_date = "2026-11-14"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "agentshield-lite"
+database_id = "7de64b16-19fd-4c65-85d9-458e6be4ce01"
+migrations_dir = "migrations"

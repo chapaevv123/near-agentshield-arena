@@ -1,0 +1,139 @@
+name: AgentShield Lite Cloudflare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'check only, migrate D1, or deploy Worker'
+        required: true
+        type: choice
+        options: [check, migrate, deploy]
+        default: check
+      confirmation:
+        description: 'For mutations type MIGRATE_D1 or DEPLOY_WORKER exactly'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agentshield-lite-cloudflare-release
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned app dependencies
+        run: npm ci --prefix app
+      - name: Install pinned Wrangler on supported Linux
+        run: npm ci --prefix deploy/cloudflare
+      - name: Frontend owner and wallet unit tests
+        run: npm test --prefix app
+      - name: Worker security tests
+        run: node --test deploy/cloudflare/worker.test.mjs deploy/cloudflare/verify_d1_identity.test.mjs
+      - name: D1 SQL compatibility tests
+        run: python -m unittest deploy.cloudflare.test_d1_local -q
+      - name: Production frontend build
+        run: npm run build:showcase --prefix app
+      - name: Actual local D1 migration on ephemeral Linux runner
+        working-directory: deploy/cloudflare
+        run: |
+          npx --no-install wrangler d1 migrations apply agentshield-lite --local --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --local --command "SELECT 1 FROM challenges LIMIT 0" --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --local --command "SELECT 1 FROM sessions LIMIT 0" --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --local --command "SELECT 1 FROM observed_payments LIMIT 0" --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --local --command "SELECT 1 FROM rate_limits LIMIT 0" --config wrangler.toml
+      - name: Secret and release preflight
+        run: |
+          python tools/scan_public_secrets.py
+          python tools/audit_git_publication.py
+          python deploy/cloudflare/preflight.py
+      - name: Wrangler dry run only
+        working-directory: deploy/cloudflare
+        run: npx --no-install wrangler deploy --dry-run --config wrangler.toml
+
+  migrate:
+    if: ${{ inputs.operation == 'migrate' }}
+    needs: check
+    runs-on: ubuntu-24.04
+    environment: cloudflare-d1-migrate
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: deploy/cloudflare
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require separate exact migration approval
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: test "$CONFIRMATION" = MIGRATE_D1
+      - name: Install pinned Wrangler
+        run: npm ci
+      - name: Verify exact remote D1 identity before mutation
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler d1 info agentshield-lite --json --config wrangler.toml | node verify_d1_identity.mjs
+      - name: Apply reviewed versioned migration to the existing D1
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler d1 migrations apply agentshield-lite --remote --config wrangler.toml
+      - name: Verify all required remote tables
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --no-install wrangler d1 execute DB --remote --command "SELECT 1 FROM challenges LIMIT 0" --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --remote --command "SELECT 1 FROM sessions LIMIT 0" --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --remote --command "SELECT 1 FROM observed_payments LIMIT 0" --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --remote --command "SELECT 1 FROM rate_limits LIMIT 0" --config wrangler.toml
+
+  deploy:
+    if: ${{ inputs.operation == 'deploy' }}
+    needs: check
+    runs-on: ubuntu-24.04
+    environment: cloudflare-worker-deploy
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require separate exact Worker approval
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: test "$CONFIRMATION" = DEPLOY_WORKER
+      - name: Install pinned dependencies and build real assets
+        run: |
+          npm ci --prefix app
+          npm ci --prefix deploy/cloudflare
+          npm run build:showcase --prefix app
+          python deploy/cloudflare/preflight.py
+      - name: Require reviewed D1 schema on remote before Worker deploy
+        working-directory: deploy/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --no-install wrangler d1 info agentshield-lite --json --config wrangler.toml | node verify_d1_identity.mjs
+          npx --no-install wrangler d1 execute DB --remote --command "SELECT 1 FROM challenges LIMIT 0" --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --remote --command "SELECT 1 FROM sessions LIMIT 0" --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --remote --command "SELECT 1 FROM observed_payments LIMIT 0" --config wrangler.toml
+          npx --no-install wrangler d1 execute DB --remote --command "SELECT 1 FROM rate_limits LIMIT 0" --config wrangler.toml
+      - name: Deploy read-only Worker and real assets to workers.dev
+        working-directory: deploy/cloudflare
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --no-install wrangler deploy --config wrangler.toml
