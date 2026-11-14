@@ -1,0 +1,16 @@
+name = "agentshield-arena-candidate"
+main = "worker.mjs"
+compatibility_date = "2026-11-14"
+workers_dev = true
+
+[assets]
+directory = "../../app/dist-showcase"
+binding = "ASSETS"
+run_worker_first = ["/app", "/app/*", "/mvp-api/*"]
+
+# Existing owner-provided D1. Confirm name and UUID with a read-only remote query before migration.
+[[d1_databases]]
+binding = "DB"
+database_name = "agentshield-lite"
+database_id = "7de64b16-19fd-4c65-85d9-458e6be4ce01"
+migrations_dir = "migrations"

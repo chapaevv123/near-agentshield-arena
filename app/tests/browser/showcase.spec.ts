@@ -8,8 +8,9 @@ test('desktop proof, navigation, controls and screenshot', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto('/');
   await expect(page).toHaveTitle(/AgentShield Arena/);
-  await expect(page.getByRole('heading', { name: /Secure payments/ })).toBeVisible();
-  await page.getByRole('link', { name: /Explore the real payment/ }).click();
+  await expect(page.getByRole('heading', { name: /Secure AI Agent Payments on NEAR/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Launch App/ }).first()).toHaveAttribute('href', '/app/');
+  await page.getByRole('link', { name: /View Verified Testnet Proof/ }).click();
   await expect(page).toHaveURL(/#demo$/);
   await page.getByRole('tab', { name: /Request/ }).click();
   await expect(page.getByRole('tabpanel')).toContainText(hashes[1]);

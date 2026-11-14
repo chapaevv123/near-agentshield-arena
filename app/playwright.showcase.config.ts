@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests/browser',
-  testMatch: 'showcase.spec.ts',
+  testMatch: ['showcase.spec.ts', 'public-app.spec.ts'],
   timeout: 30_000,
-  use: { baseURL: 'http://127.0.0.1:4182', browserName: 'chromium', channel: 'msedge' },
+  use: { baseURL: process.env.AGENTSHIELD_PREVIEW_URL || 'http://127.0.0.1:4182', browserName: 'chromium', channel: 'msedge' },
 });

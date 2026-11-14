@@ -1,0 +1,5 @@
+export type Policy = {owner:string;agent:string;agent_expires_at_ns?:string;max_payment:string;window_limit:string;approval_threshold:string;window_ns:number;version:number;paused:boolean;emergency_stop:boolean;recipients:string[]};
+export type Payment = {id:string;recipient:string;amount:string;policy_version:number;status:'READY'|'AWAITING_APPROVAL'|'APPROVED'|'PENDING_TRANSFER'|'SETTLED'|'FAILED_TRANSFER';window_id:number|null;proposed_by:string;approved_by:string|null};
+export type Account = {amount:string;storage_usage:number;code_hash:string};
+export type Scenario = {id:string;attack_input:string;requested_action:string;policy_version:number;expected_outcome:string;actual_outcome:string;enforcement_layer:string;evidence:string;transaction_hash:string|null};
+export type Evidence = {case_id:string;payment_id:string;tx_hash:string|null;signer:string|null;outcome:string;status:string|null;level:string;explorer_url:string|null;recipient_delta_yocto:string|null;policy_version:number|null;transfer_receipt_id:string|null;callback_receipt_id:string|null;historical_status:string|null;source:string;raw_url:string};

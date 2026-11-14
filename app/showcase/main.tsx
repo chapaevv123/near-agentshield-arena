@@ -19,6 +19,7 @@ const phases: { key: Phase; label: string; actor: string; detail: string }[] = [
   { key: 'execute', label: 'Execute', actor: 'Restricted agent', detail: 'The Vault executed the approved request and transferred exactly 0.001 NEAR to the allowed recipient.' },
 ];
 const explorer = (hash: string) => `https://testnet.nearblocks.io/txns/${hash}`;
+const appUrl='/app/';
 function TxLink({ hash, label }: { hash: string; label: string }) {
   return <a className="tx-link" href={explorer(hash)} target="_blank" rel="noopener noreferrer" aria-label={`Open ${label} transaction ${hash} in NEAR Testnet Explorer`}><span>{hash}</span><span aria-hidden="true">↗</span></a>;
 }
@@ -35,13 +36,13 @@ function App() {
       <nav id="site-nav" className={menuOpen ? 'nav-links open' : 'nav-links'} aria-label="Main navigation">
         <a href="#product" onClick={closeMenu}>Product</a><a href="#how-it-works" onClick={closeMenu}>How it works</a><a href="#demo" onClick={closeMenu}>Demo</a><a href="#architecture" onClick={closeMenu}>Architecture</a><a href="#docs" onClick={closeMenu}>Docs</a>
       </nav>
-      <a className="header-cta" href="#demo">Explore proof <span aria-hidden="true">↗</span></a>
+      <a className="header-cta" href={appUrl}>Launch App <span aria-hidden="true">↗</span></a>
     </div></header>
     <main id="main"><section className="hero shell" id="top" aria-labelledby="hero-title">
       <div className="hero-copy"><div className="eyebrow"><span className="pulse-dot"/> BUILT ON NEAR TESTNET <span className="eyebrow-line"/></div>
-        <h1 id="hero-title">Secure payments<br/>for <span>AI agents.</span></h1>
-        <p className="hero-lead">Give agents the ability to pay, without giving up control. Every payment follows an owner approved policy and leaves a verifiable on-chain trail.</p>
-        <div className="hero-actions"><a className="button primary" href="#demo">Explore the real payment <span aria-hidden="true">↗</span></a><a className="button subtle" href="#how-it-works">How it works <span aria-hidden="true">↓</span></a></div>
+        <h1 id="hero-title">Secure AI Agent<br/><span>Payments on NEAR.</span></h1>
+        <p className="hero-lead">Give agents limited spending authority instead of full wallet access. Set your own Vault policy, authorize exact payments, and inspect the on-chain outcome.</p>
+        <div className="hero-actions"><a className="button primary" href={appUrl}>Launch App <span aria-hidden="true">↗</span></a><a className="button subtle" href="#demo">View Verified Testnet Proof</a><a className="button subtle" href="#security">Read Security Model</a></div>
         <div className="hero-trust"><span className="trust-icon">✦</span><span>One completed Testnet settlement · independently FINAL verified</span></div>
       </div>
       <div className="hero-card-wrap"><div className="orb orb-green"/><div className="orb orb-purple"/><article className="proof-card" aria-label="Completed Testnet payment proof">
