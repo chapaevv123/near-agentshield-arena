@@ -2,9 +2,11 @@
 
 **PRODUCT READY = NO.** No GitHub push, D1 migration, Worker deployment, Vercel deployment, agent key or transaction is authorized by this document.
 
+**14 November release update:** payment UI commit `449e9f8` adds a guarded manual 0.001 NEAR owner/agent Meteor route. Vercel Preview `dpl_82bYZLX6yMzYzvq7jJGZoomSr7Zo` is READY at `https://near-agentshield-arena-67n5ofb6f-chapaevv123s-projects.vercel.app/app/`, but anonymous HTTP redirects to Vercel Authentication. No new payment has been signed; the historical settlement remains the only FINAL payment proof. The owner separately authorized safe publication of the reviewed code to GitHub. Before merging PR #1, verify whether a merge to `main` automatically triggers an unapproved Production deployment; stop if that behavior or its safeguards remain unknown.
+
 ## Candidate and boundaries
 
-- [PR #1](https://github.com/chapaevv123/near-agentshield-arena/pull/1) is open from `release/functional-lite-20261114` into `main`. Its published commits are `6c7a64f` and `2af878c`; `check` passed in 39 seconds, while `migrate` and `deploy` were skipped. Recheck the PR head, checks and target branch before merge. The original dirty checkout is untouched.
+- [PR #1](https://github.com/chapaevv123/near-agentshield-arena/pull/1) is open from `release/functional-lite-20261114` into `main`. Its previous GitHub head `81f44b8` passed `check`, while `migrate` and `deploy` were skipped; the newer payment commit `449e9f8` must pass fresh CI after publication. Recheck the PR head, checks and target branch before merge. The original dirty checkout is untouched.
 - Vercel root `app/`, build `npm run build:showcase`, output `dist-showcase`. This contains the existing landing and the real wallet owner workspace at `/app/`. With no Worker URL, owner wallet actions use direct NEAR Testnet RPC and cloud-only panels show unavailable.
 - `deploy/cloudflare/wrangler.toml` binds existing D1 `agentshield-lite` (`7de64b16-19fd-4c65-85d9-458e6be4ce01`) and serves the same `dist-showcase` assets on standard `workers.dev`. Worker offers NEP-413 owner-scoped read-only API. No signing/broadcast endpoint exists.
 - Shared restricted executor design remains, but public autonomous REQUEST/EXECUTE is unavailable. The legacy Windows control plane is outside Lite hosting.
@@ -17,7 +19,7 @@
 
 ## Publication sequence after separate approvals
 
-1. Finish local README and judge instructions; review their diff and secret scan. Push only a reviewed follow-up commit to the existing PR after separate push approval. Confirm the new PR head and green checks. Do not open another PR.
+1. Review the updated README, judge instructions and manual payment commit; scan the exact diff and publication set. Push only the reviewed release branch to the existing PR under the owner's GitHub publication authorization. Confirm the new PR head and green checks. Do not open another PR.
 2. After separate merge and Vercel approvals, merge PR #1 into `main`. Record the merge SHA and confirm Vercel builds that SHA with root `app`, `npm run build:showcase`, and `dist-showcase`. Leave `VITE_AGENTSHIELD_WORKER_URL` unset for the wallet-first deployment.
 3. Verify production `/` and `/app/` return 200, `/app` redirects to `/app/`, and Launch App opens the real Meteor/Testnet workspace. Check assets, CSP/RPC connectivity and the cloud-unavailable state. A route returning 200 does not prove a signed wallet flow.
 4. Capture a separately authorized real Meteor owner transaction and reconcile its exact FINAL hash and Vault state before describing public wallet-to-chain onboarding as complete. The `workflow_dispatch` button appears after the workflow is on default `main`.
